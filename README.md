@@ -11,9 +11,11 @@ None.  Should run all systems.
 
 # Installation
 
+```
 autoconf -i
 ./configure
 make
 sudo make install
+```
 
-Run ./configure --help for configuration options.
+Run `./configure --help` for configuration options.
