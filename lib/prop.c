@@ -69,33 +69,12 @@ static void Com_Straight(struct lcw_properties *prop, const float *ref, const fl
   prop->center_of_mass[Y] += 1.0/6 * (y2 + y1) * aa;
 }
 
-static void Mom2_Straight(struct lcw_properties *prop, const float *p1, const float *p2) {
-  float x1, x2, y1, y2, aa, xx, yy;
-  
-  x1 = p1[X] - prop->center_of_mass[X];
-  x2 = p2[X] - prop->center_of_mass[X];
-  y1 = p1[Y] - prop->center_of_mass[Y];
-  y2 = p2[Y] - prop->center_of_mass[Y];
-  
-  aa = x1 * y2 - x2 * y1;
-  xx = x2 * x2 + x1 * x2 + x1 * x1;
-  yy = y2 * y2 + y1 * y2 + y1 * y1;
-  prop->second_moment[X] += 1.0f/12 * aa * yy;
-  prop->second_moment[Y] += 1.0f/12 * aa * xx;
-  prop->second_moment[XY] += 1.0f/12 * aa * (x2 * y2 + x1 * y1 + 0.5f * (x1 * y2 + x2 * y1));
-}
-
-static void Mom3x_Straight(struct lcw_properties *prop, const float *p1, const float *p2) {
-  struct lcw_properties pp;
-  float cx, cy, x1, x2, y1, y2, aa, x1_2, x2_2, y1_2, y2_2;
+static void Mom_Straight(struct lcw_properties *prop, const float *p1, const float *p2) {
+  float cx, cy, x1, x2, y1, y2, aa, xx, yy, momxx, momyy, momxy;
+  float x1_2, x2_2, y1_2, y2_2;
   
   cx = prop->center_of_mass[X];
   cy = prop->center_of_mass[Y];
-  
-  memset(&pp, 0, sizeof(pp));
-  pp.center_of_mass[X] = cx;
-  pp.center_of_mass[Y] = cy;
-  Mom2_Straight(&pp, p1, p2);
   
   x1 = p1[X] - cx;
   x2 = p2[X] - cx;
@@ -103,14 +82,24 @@ static void Mom3x_Straight(struct lcw_properties *prop, const float *p1, const f
   y2 = p2[Y] - cy;
   
   aa = x1 * y2 - x2 * y1;
+  xx = x2 * x2 + x1 * x2 + x1 * x1;
+  yy = y2 * y2 + y1 * y2 + y1 * y1;
+  momxx = 1.0f/12 * aa * yy;
+  momyy = 1.0f/12 * aa * xx;
+  momxy = 1.0f/12 * aa * (x2 * y2 + x1 * y1 + 0.5f * (x1 * y2 + x2 * y1));
+
+  prop->second_moment[X]  += momxx;
+  prop->second_moment[Y]  += momyy;
+  prop->second_moment[XY] += momxy;
+
   x1_2 = x1 * x1;
   x2_2 = x2 * x2;
   y1_2 = y1 * y1;
   y2_2 = y2 * y2;
   
-  prop->third_moment_x[X]  += 1.0f/20 * aa * (y2 + y1) * (y2_2 + y1_2) + cy * pp.second_moment[X];
-  prop->third_moment_x[Y]  += 1.0f/60 * aa * (3 * (x2_2 * y2 + x1_2 * y1) + 2 * x1 * x2 * (y2 + y1) + x1_2 * y2 + x2_2 * y1) + cy * pp.second_moment[Y];
-  prop->third_moment_x[XY] += 1.0f/60 * aa * (3 * (x2 * y2_2 + x1 * y1_2) + 2 * y1 * y2 * (x1 + x2) + x1 * y2_2 + x2 * y1_2) + cy * pp.second_moment[XY];
+  prop->third_moment_x[X]  += 1.0f/20 * aa * (y2 + y1) * (y2_2 + y1_2) + cy * momxx;
+  prop->third_moment_x[Y]  += 1.0f/60 * aa * (3 * (x2_2 * y2 + x1_2 * y1) + 2 * x1 * x2 * (y2 + y1) + x1_2 * y2 + x2_2 * y1) + cy * momyy;
+  prop->third_moment_x[XY] += 1.0f/60 * aa * (3 * (x2 * y2_2 + x1 * y1_2) + 2 * y1 * y2 * (x1 + x2) + x1 * y2_2 + x2 * y1_2) + cy * momxy;
 }
 
 static float EvalPoly(const float *coefs, float x, int num) {
@@ -228,55 +217,6 @@ static float momyy_coefs[] =
    5.793650793650793e-4f,
    7.142857142857143e-4f};
 
-static void Mom2_Circle(struct lcw_properties *prop, const float *p1, const float *p2, float alpha) {
-  float dx, dy, d2, a2, asn, sqa, d, d3, d4, a3, a4;
-  float area, momx, comx, momxx, momyy;
-  float mx, my, rx, ry, rx2, ry2, rxy;
-  
-  dx = p2[X] - p1[X];
-  dy = p2[Y] - p1[Y];
-  d2 = dx * dx + dy * dy;
-  d  = sqrtf(d2);
-  d3 = d2 * d;
-  d4 = d2 * d2;
-  a2 = alpha * alpha;
-  a3 = alpha * a2;
-  a4 = a2 * a2;
-
-  if (fabsf(alpha) < 0.3f) {
-    area = d2 * EvalPolyM(area_coefs, a2) * alpha;
-    momx = d3 * EvalPolyM(momx_coefs, a2) * a2;
-  } else {
-    a3 = alpha * a2;
-    asn = asinf(alpha);
-    sqa = sqrtf(1 - a2);
-    area = 0.25f * d2 * (asn - alpha * sqa) / a2;
-    momx = 1.0f/24 * d3 * (3 * alpha - a3 - 3 * sqa * asn) / a3;
-  }
-  comx = momx / area;
-  if (fabsf(alpha) < 0.5f) {
-    momxx = d4 * EvalPolyM(momxx_coefs, a2) * alpha;
-    momyy = d4 * EvalPolyM(momyy_coefs, a2) * a3;
-  } else {
-    asn = asinf(alpha);
-    sqa = sqrtf(1 - a2);
-    momxx = 1.0f/192 * d4 * (3 * asn - sqa * alpha * (2 * a2 + 3)) / a4;
-    momyy = 1.0f/192 * d4 * (-12 * a2 * asn + 15 * asn + sqa * alpha * (2 * a2 - 15)) / a4 - momx * comx;
-  }
-  
-  rx = dx / d;
-  ry = dy / d;
-  rx2 = rx * rx;
-  ry2 = ry * ry;
-  rxy = rx * ry;
-  mx = 0.5f * (p1[X] + p2[X]) - prop->center_of_mass[X] + ry * comx;
-  my = 0.5f * (p1[Y] + p2[Y]) - prop->center_of_mass[Y] - rx * comx;
-  
-  prop->second_moment[X]  += ry2 * momxx + rx2 * momyy + area * my * my;
-  prop->second_moment[Y]  += rx2 * momxx + ry2 * momyy + area * mx * mx;
-  prop->second_moment[XY] += rxy * (momxx - momyy) + area * mx * my;
-}
-
 static float momyyraw_coefs[] =
   {3.735174680136291e-4f,
    4.116992536328001e-4f,
@@ -307,25 +247,26 @@ static float momxxy_coefs[] =
    3.968253968253968e-4f,
    5.952380952380953e-4f};
 
-static void Mom3x_Circle(struct lcw_properties *prop, const float *p1, const float *p2, float alpha) {
-  struct lcw_properties pp;
-  float cx, cy, v, qx, qy;
-  float dx, dy, d2, d, d3, d4, d5, a2, a3, a4, a5;
-  float A, Ix, Ixx, Iyyraw, Ixxy, asn, sqa;
-  float cxx, my, cyy, st, ct, st2, ct2, cst;
-  float prod1, prod2, sub;
-  
-  cx  = prop->center_of_mass[X];
-  cy  = prop->center_of_mass[Y];
+static float momyyy_coefs[] =
+  {1.374443088850042e-4f,
+   1.495273250507189e-4f,
+   1.634256982124844e-4f,
+   1.795206533394715e-4f,
+   1.982887216431435e-4f,
+   2.20320801825715e-4f,
+   2.463308964856953e-4f,
+   2.771222585464072e-4f,
+   3.134120781179605e-4f,
+   3.552003552003552e-4f,
+   3.996003996003996e-4f,
+   4.329004329004329e-4f,
+   3.968253968253968e-4f};
 
-  memset(&pp, 0, sizeof(pp));
-  pp.center_of_mass[X] = cx;
-  pp.center_of_mass[Y] = cy;
-  Mom2_Circle(&pp, p1, p2, alpha);
-  
-  v  = pp.area * cy;
-  qx = pp.second_moment[X]  / v + cx;
-  qy = pp.second_moment[XY] / v + cy;
+static void Mom_Circle(struct lcw_properties *prop, const float *p1, const float *p2, float alpha) {
+  float dx, dy, d2, asn, sqa, d, d3, d4, d5, a2, a3, a4, a5;
+  float area, momx, comx, momxx, momyy, momyyraw, momxxy, momyyy;
+  float midx, midy, bmx, bmy, mx, my, rx, ry, rx2, ry2, rxy;
+  float area3, momx3, momy3, comx3, comy3, Ixx3, Iyy3, Ixy3;
   
   dx = p2[X] - p1[X];
   dy = p2[Y] - p1[Y];
@@ -333,75 +274,71 @@ static void Mom3x_Circle(struct lcw_properties *prop, const float *p1, const flo
   d  = sqrtf(d2);
   d3 = d2 * d;
   d4 = d2 * d2;
-  d5 = d4 * d;
+  d5 = d3 * d2;
   a2 = alpha * alpha;
-  a3 = a2 * alpha;
+  a3 = alpha * a2;
   a4 = a2 * a2;
-  a5 = a4 * alpha;
-  
+  a5 = a3 * a2;
+
   if (fabsf(alpha) < 0.3f) {
-    A = d2 * EvalPolyM(area_coefs, a2) * alpha;
-    Ix = d3 * EvalPolyM(momx_coefs, a2) * a2;
+    area = d2 * EvalPolyM(area_coefs, a2) * alpha;
+    momx = d3 * EvalPolyM(momx_coefs, a2) * a2;
   } else {
     asn = asinf(alpha);
     sqa = sqrtf(1 - a2);
-    A = 0.25f * d2 * (asn - alpha * sqa) / a2;
-    Ix = 1.0f/24 * d3 * (3 * alpha - a3 - 3 * sqa * asn) / a3;
+    area = 0.25f * d2 * (asn - alpha * sqa) / a2;
+    momx = 1.0f/24 * d3 * (3 * alpha - a3 - 3 * sqa * asn) / a3;
   }
+  comx = momx / area;
   if (fabsf(alpha) < 0.5f) {
-    Ixx    = d4 * EvalPolyM(momxx_coefs, a2) * alpha;
-    Iyyraw = d4 * EvalPolyM(momyyraw_coefs, a2) * a3;
-    Ixxy   = d5 * EvalPolyM(momxxy_coefs, a2) * a2;
+    momxx = d4 * EvalPolyM(momxx_coefs, a2) * alpha;
+    momyy = d4 * EvalPolyM(momyy_coefs, a2) * a3;
+    momyyraw = d4 * EvalPolyM(momyyraw_coefs, a2) * a3;
+    momxxy = d5 * EvalPolyM(momxxy_coefs, a2) * a2;
+    momyyy = d5 * EvalPolyM(momyyy_coefs, a2) * a4;
   } else {
     asn = asinf(alpha);
     sqa = sqrtf(1 - a2);
-    Ixx    = 1.0f/192 * d4 * (3 * asn - sqa * alpha * (2 * a2 + 3)) / a4;
-    Iyyraw = 1.0f/192 * d4 * (-12 * a2 * asn + 15 * asn + 2 * a3 * sqa - 15 * alpha * sqa) / a4;
-    Ixxy   = 1.0f/1920 * d5 * (15 * alpha + 15 * sqa * asn - 2 * a5 - 5 * a3) / a5;
+    momxx = 1.0f/192 * d4 * (3 * asn - sqa * alpha * (2 * a2 + 3)) / a4;
+    momyyraw = 1.0f/192 * d4 * (-12 * a2 * asn + 15 * asn + sqa * alpha * (2 * a2 - 15)) / a4;
+    momyy = momyyraw - momx * comx;
+    momxxy = 1.0f/1920 * d5 * (-15 * sqa * asn - 2 * a5 - 5 * a3 + 15 * alpha) / a5;
+    momyyy = 1.0f/1920 * d5 * (60 * a2 * sqa * asn - 105 * sqa * asn + 6 * a5 - 95 * a3 + 105 * alpha) / a5;
   }
+
+  /* Second moment */
+  rx   = dx / d;
+  ry   = dy / d;
+  rx2  = rx * rx;
+  ry2  = ry * ry;
+  rxy  = rx * ry;
+  midx = 0.5f * (p1[X] + p2[X]);
+  midy = 0.5f * (p1[Y] + p2[Y]);
+  bmx  = midx - prop->center_of_mass[X];
+  bmy  = midy - prop->center_of_mass[Y];
+  mx   = bmx + ry * comx;
+  my   = bmy - rx * comx;
   
-  cxx = 0.5f * (p1[X] + p2[X]) - qx;
-  my  = 0.5f * (p1[Y] + p2[Y]);
-  cyy = my - qy;
-  st  = dx / d;
-  ct  = dy / d;
-  st2 = st * st;
-  ct2 = ct * ct;
-  cst = ct * st;
+  prop->second_moment[X]  += ry2 * momxx + rx2 * momyy + area * my * my;
+  prop->second_moment[Y]  += rx2 * momxx + ry2 * momyy + area * mx * mx;
+  prop->second_moment[XY] += rxy * (momxx - momyy) + area * mx * my;
+
+  /* Third moment x */
+  area3 = midy * area - rx * momx;
+  momx3 = midy * momx - rx * momyyraw;
+  momy3 = ry * momxx;
+  comx3 = momx3 / area3;
+  comy3 = momy3 / area3;
+  Ixx3  = midy * momxx - rx * momxxy - momy3 * comy3;
+  Iyy3  = midy * momyyraw - rx * momyyy - momx3 * comx3;
+  Ixy3  = ry * momxxy - area3 * comx3 * comy3;
   
-  prod1 = (2 * cyy - d * st) * (2 * cyy + d * st);
-  
-  prop->third_moment_x[X] +=
-    0.5f * A * cyy * d2 * st2 +
-    0.25f * A * my * prod1 +
-    0.25f * Ix * st * prod1 +
-    -2 * Ix * my * cyy * st +
-    2 * Ixx * cyy * (4 * ct2 - 5) +
-    Ixx * my * (4 * st2 + 1) +
-    Ixxy * st * (4 * st2 + 3);
-  
-  prod2 = (2 * cxx - d * ct) * (2 * cxx + d * ct);
-  
-  prop->third_moment_x[Y] +=
-    0.5f * A * cxx * d2 * cst +
-    0.25f * A * my * prod2 +
-    0.25f * Ix * st * prod2 +
-    -2 * Ix * my * cxx * ct +
-    -8 * Ixx * cxx * cst +
-    Ixx * my * (4 * ct2 + 1) +
-    Ixxy * st * (4 * ct2 + 1);
-  
-  sub = 4 * cxx * cyy - d2 * cst;
-  
-  prop->third_moment_x[XY] +=
-    0.25f * A * cyy * d2 * cst +
-    0.25f * A * my * sub +
-    0.25f * Ix * st * sub +
-    -Ix * my * (cxx * st + cyy * ct) +
-    -Ixx * ct * (4 * cyy * st + cxx * ct) +
-    4 * Ixx * my * cst +
-    -Iyyraw * cxx * st2 +
-    Ixxy * (4 * st2 + 1);
+  mx = bmx + ry * comx3 + rx * comy3;
+  my = bmy - rx * comx3 + ry * comy3;
+
+  prop->third_moment_x[X]  += rx * (Iyy3 * rx - Ixy3 * ry) + ry * (Ixx3 * ry - Ixy3 * rx) + area3 * my * my;
+  prop->third_moment_x[Y]  += ry * (Iyy3 * ry + Ixy3 * rx) + rx * (Ixx3 * rx + Ixy3 * ry) + area3 * mx * mx;
+  prop->third_moment_x[XY] += rx * (Ixx3 * ry - Ixy3 * rx) - ry * (Iyy3 * rx - Ixy3 * ry) + area3 * mx * my;
 }
 
 static void Prop(struct lcw_properties *prop, const struct lcw_wire *wire) {
@@ -439,17 +376,9 @@ static void Prop(struct lcw_properties *prop, const struct lcw_wire *wire) {
   for (count = 0; count < wire->num_seg[0] - 1; count++) {
     cur  = &wire->seg[0][count];
     next = &wire->seg[0][count + 1];
-    Mom2_Straight(prop, cur->pt, next->pt);
+    Mom_Straight(prop, cur->pt, next->pt);
     if (next->alpha != 0)
-      Mom2_Circle(prop, cur->pt, next->pt, next->alpha);
-  }
-  
-  for (count = 0; count < wire->num_seg[0] - 1; count++) {
-    cur  = &wire->seg[0][count];
-    next = &wire->seg[0][count + 1];
-    Mom3x_Straight(prop, cur->pt, next->pt);
-    if (next->alpha != 0)
-      Mom3x_Circle(prop, cur->pt, next->pt, next->alpha);
+      Mom_Circle(prop, cur->pt, next->pt, next->alpha);
   }
 }
 

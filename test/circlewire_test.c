@@ -132,8 +132,11 @@ const struct lcw_seg arc_vb[] =
    {{15,        6},        0,        0},
    {{17.3917,  10.2657},   0.489046, 0}};
 
-#define CHECK(a, b) (fabsf((a) - (b)) > 1e-5 * fabsf(b))
-#define CHECK_ABS(a, b) (fabsf((a) - (b)) > 1e-5)
+const float ext_param[] = {40, 0.5, M_PI/6};
+const float rev_param[] = {0.8};
+
+#define CHECK_ABS(a, b, t) (!(fabsf((a) - (b)) <= (t)))
+#define CHECK(a, b, t, at) (!(fabsf((a) - (b)) <= (t) * fabsf(b)) && CHECK_ABS(a, b, at))
 
 int Check_CutAtX(const char *msg, float xval, float alpha) {
   struct lcw_wire *wire;
@@ -197,14 +200,14 @@ int Check_CutAtX(const char *msg, float xval, float alpha) {
   
   seg = LCW_Segs(list->wire, 0);
   ns  = LCW_NumSegs(list->wire, 0);
-  if (CHECK_ABS(seg[ns-1].pt[0], xval)) {
+  if (CHECK_ABS(seg[ns-1].pt[0], xval, 1e-5)) {
     fprintf(stderr, "%s: Incorrect point 1: expected %g, found %g\n", msg, xval, seg[ns-1].pt[0]);
     ret = -1;
   }
   
   seg = LCW_Segs(list->wire, 1);
   ns  = LCW_NumSegs(list->wire, 1);
-  if (CHECK_ABS(seg[ns-1].pt[0], xval)) {
+  if (CHECK_ABS(seg[ns-1].pt[0], xval, 1e-5)) {
     fprintf(stderr, "%s: Incorrect point 2: expected %g, found %g\n", msg, xval, seg[ns-2].pt[0]);
     ret = -1;
   }
@@ -236,17 +239,17 @@ int Verify_Segs(const char *msg, const struct lcw_wire *wire, const struct lcw_s
 
     ws = LCW_Segs(wire, slot);
     for (idx = 0; idx < num_seg[slot]; idx++) {
-      if (CHECK(ws[idx].pt[0], seg[slot][idx].pt[0])) {
+      if (CHECK(ws[idx].pt[0], seg[slot][idx].pt[0], 1e-5, 1e-5)) {
 	fprintf(stderr, "%s: Slot %d: Segment %zu X mismatch, expected %g, found %g\n",
 		msg, slot, idx, seg[slot][idx].pt[0], ws[idx].pt[0]);
 	ret = -1;
       }
-      if (CHECK(ws[idx].pt[1], seg[slot][idx].pt[1])) {
+      if (CHECK(ws[idx].pt[1], seg[slot][idx].pt[1], 1e-5, 1e-5)) {
 	fprintf(stderr, "%s: Slot %d: Segment %zu Y mismatch, expected %g, found %g\n",
 		msg, slot, idx, seg[slot][idx].pt[1], ws[idx].pt[1]);
 	ret = -1;
       }
-      if (CHECK(ws[idx].alpha, seg[slot][idx].alpha)) {
+      if (CHECK(ws[idx].alpha, seg[slot][idx].alpha, 1e-5, 1e-5)) {
 	fprintf(stderr, "%s: Slot %d: Segment %zu alpha mismatch, expected %g, found %g\n",
 		msg, slot, idx, seg[slot][idx].alpha, ws[idx].alpha);
 	ret = -1;
@@ -281,9 +284,9 @@ int Verify_Segs(const char *msg, const struct lcw_wire *wire, const struct lcw_s
   return ret;
 }
 
-#define CHECK_PROP(pp) \
+#define CHECK_PROP(pp, at)						\
   do {									\
-    if (fabsf(prop->pp - exp->pp) > tol * fabsf(exp->pp)) {		\
+    if (CHECK(prop->pp, exp->pp, tol, (at))) {				\
       fprintf(stderr, "%s: " #pp " mismatch, expected %g, found %g\n",	\
 	      msg, exp->pp, prop->pp);					\
       ret = -1;								\
@@ -293,19 +296,40 @@ int Verify_Segs(const char *msg, const struct lcw_wire *wire, const struct lcw_s
 int Check_Prop(const char *msg, const struct lcw_properties *prop, const struct lcw_properties *exp, float tol) {
   int ret = 0;
 
-  CHECK_PROP(area);
-  CHECK_PROP(center_of_mass[0]);
-  CHECK_PROP(center_of_mass[1]);
-  CHECK_PROP(second_moment[0]);
-  CHECK_PROP(second_moment[1]);
-  CHECK_PROP(second_moment[2]);
-  CHECK_PROP(third_moment_x[0]);
-  CHECK_PROP(third_moment_x[1]);
-  CHECK_PROP(third_moment_x[2]);
-  CHECK_PROP(min[0]);
-  CHECK_PROP(min[1]);
-  CHECK_PROP(max[0]);
-  CHECK_PROP(max[1]);
+  CHECK_PROP(area, tol);
+  CHECK_PROP(center_of_mass[0], tol);
+  CHECK_PROP(center_of_mass[1], tol);
+  CHECK_PROP(second_moment[0], tol);
+  CHECK_PROP(second_moment[1], tol);
+  CHECK_PROP(second_moment[2], tol);
+  CHECK_PROP(third_moment_x[0], tol);
+  CHECK_PROP(third_moment_x[1], tol);
+  CHECK_PROP(third_moment_x[2], tol);
+  CHECK_PROP(min[0], tol);
+  CHECK_PROP(min[1], tol);
+  CHECK_PROP(max[0], tol);
+  CHECK_PROP(max[1], tol);
+  
+  return ret;
+}
+
+int Check_SolidProp(const char *msg, const struct lp_mass_properties *prop, const struct lp_mass_properties *exp, float tol) {
+  int ret = 0;
+  float tr = 1e-3 * (exp->inertia_tensor[0] + exp->inertia_tensor[4] + exp->inertia_tensor[8]);
+
+  CHECK_PROP(volume, tol);
+  CHECK_PROP(center_of_mass[0], tol);
+  CHECK_PROP(center_of_mass[1], tol);
+  CHECK_PROP(center_of_mass[2], tol);
+  CHECK_PROP(inertia_tensor[0], tol * tr);
+  CHECK_PROP(inertia_tensor[1], tol * tr);
+  CHECK_PROP(inertia_tensor[2], tol * tr);
+  CHECK_PROP(inertia_tensor[3], tol * tr);
+  CHECK_PROP(inertia_tensor[4], tol * tr);
+  CHECK_PROP(inertia_tensor[5], tol * tr);
+  CHECK_PROP(inertia_tensor[6], tol * tr);
+  CHECK_PROP(inertia_tensor[7], tol * tr);
+  CHECK_PROP(inertia_tensor[8], tol * tr);
   
   return ret;
 }
@@ -489,6 +513,83 @@ static int DecompTest(const char *msg, const char *path, const char *svg_filenam
   return ret_val;
 }
 
+static int SolidTest(const char *msg, const char *path, enum lcw_solid_type type, const float *param, size_t num_param, const char *obj_path) {
+  struct lcw_wire *wire;
+  struct lcw_solid *solid;
+  struct lp_mass_properties sprop, mprop;
+  struct lp_vertex_list *mesh;
+  struct lp_vl_list *decomp, *out, *mesh_list;
+  int ret_val = 0;
+  
+  if ((wire = LCW_FromSvgPath(path, 0, 1e-5)) == NULL) {
+    fprintf(stderr, "%s: Could not create wire from path\n", msg);
+    ret_val = -1;
+    goto err;
+  }
+  
+  if ((solid = LCW_Solid(wire, type, param, num_param)) == NULL) {
+    fprintf(stderr, "%s: Could not create solid\n", msg);
+    ret_val = -1;
+    goto err2;
+  }
+  
+  if (LCW_SolidProperties(&sprop, solid) != LCW_NO_ERROR) {
+    fprintf(stderr, "%s: Could not get solid properties\n", msg);
+    ret_val = -1;
+    goto err3;
+  }
+  
+  if ((mesh = LCW_SolidMesh(solid, 1e-4)) == NULL) {
+    fprintf(stderr, "%s: Could not mesh solid\n", msg);
+    ret_val = -1;
+  }
+  
+  LP_MassProperties(mesh, &mprop);
+  if (Check_SolidProp(msg, &sprop, &mprop, POLY_TOL) < 0)
+    ret_val = -1;
+  
+  if ((decomp = LCW_SolidConvexDecomp(solid, 1e-2, 1e-4)) == NULL) {
+    fprintf(stderr, "%s: Could not perform solid convex decomposition\n", msg);
+    ret_val = -1;
+  }
+  
+  if (mesh && (mesh_list = LP_VertexList_ListAppend(NULL, mesh)) == NULL) {
+    fprintf(stderr, "%s: Could not create list from mesh\n", msg);
+    ret_val = -1;
+  }
+  if (mesh_list)
+    mesh = NULL;
+
+  if ((out = LP_VertexList_ListJoin(mesh_list, decomp)) == NULL) {
+    fprintf(stderr, "%s: Could not join lists\n", msg);
+    ret_val = -1;
+    goto err4;
+  }
+  if (out) {
+    mesh_list = NULL;
+    decomp = NULL;
+  }
+  
+  if (obj_path && LP_VertexList_Write(obj_path, out, 1) < 0) {
+    fprintf(stderr, "%s: Could not write out obj to '%s'\n", msg, obj_path);
+    ret_val = -1;
+  }
+  
+  /* Fall through */
+
+  LP_VertexList_ListFree(out);
+ err4:
+  LP_VertexList_ListFree(mesh_list);
+  LP_VertexList_ListFree(decomp);
+  LP_VertexList_Free(mesh);
+ err3:
+  LCW_SolidFree(solid);
+ err2:
+  LCW_Free(wire);
+ err:
+  return ret_val;
+}
+
 int main(void) {
   if (Check_CutAtX("Cut 1", 5, 0.05) < 0)
     exit(1);
@@ -549,6 +650,30 @@ int main(void) {
     exit(1);
   
   if (DecompTest("Arc decomp", arc_path, "arc_decomp.svg") < 0)
+    exit(1);
+  
+  if (SolidTest("First arc extrude",
+		first_arc_path,
+		lcw_extrude,
+		ext_param,
+		sizeof(ext_param) / sizeof(*ext_param),
+		"first_arc_extrude.obj") < 0)
+    exit(1);
+  
+  if (SolidTest("First arc revolve",
+		first_arc_path,
+		lcw_revolve,
+		rev_param,
+		sizeof(rev_param) / sizeof(*rev_param),
+		"first_arc_revolve.obj") < 0)
+    exit(1);
+  
+  if (SolidTest("Arc extrude",
+		arc_path,
+		lcw_extrude,
+		ext_param,
+		sizeof(ext_param) / sizeof(*ext_param),
+		"arc_extrude.obj") < 0)
     exit(1);
   
   fprintf(stderr, "All tests passed\n");

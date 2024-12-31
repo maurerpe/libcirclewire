@@ -92,6 +92,32 @@ float ArcCenter(float *cent, const float *a, const float *b, float alpha) {
   return rad;
 }
 
+size_t RevRequiredSegs(float ang, float rad, float tol) {
+  float ratio, denom, num;
+  
+  if (ang == 0 || rad == 0)
+    return 1;
+
+  ratio = fabsf(tol / rad);
+  if (ratio >= 2)
+    return 1;
+  if (ratio < 0.01)
+    denom = sqrtf(2 * ratio) * ((3.0f/160 * ratio + 1.0f/12) * ratio + 1);
+  else
+    denom = acosf(1 - ratio);
+  num = ceilf(0.5 * fabsf(ang) / denom);
+  
+  if (num < 1)
+    return 1;
+  if (num > SIZE_MAX)
+    return SIZE_MAX;
+  return num;
+}
+
+size_t RequiredSegs(float dist, float alpha, float tol) {
+  return RevRequiredSegs(2*asinf(alpha), dist / (2 * alpha), tol);
+}
+
 static float SDA(float t, float a) {
   float a2, t2, c2, c1;
   

@@ -37,11 +37,33 @@
 
    Uses Vatti clipping, but only supports a single top and single
    bottom wire.  Scans a vertical line from -x to +x.  Wires convertable
-   to this form are refered to as "Vatti singular".
+   to this form are referred to as "Vatti singular".
+
+   Can also process solids made by extruding and revolving 2D wires.
+   Extrusions:
+      Wires are extruded along the z-axis.  An optional scaling parameter
+      allows linear scaling along the extusion.  An optional sweep parameter
+      allows extrusion to be swept along the x-axis.
+      
+      Parameters:
+      Index   Name          Range    Default   Description
+      0       Half height   (0,Inf)  -         Half height of the extrusion
+      1       Scale         (0, 2)   1         Amount to scale the +z end
+      2       Sweep angle   (-pi,pi) 0         Angle of extrusion
+      
+   Revolutions:
+      Wires are rotated about the x-axis.  An optional parameter specifies the
+      angle of the revolution.
+
+      Parameters:
+      Index   Name          Range    Default   Description
+      0       Half Angle    (0,pi)   -         Half angle of the revolution
 */
 
 #ifndef LIBCIRCLEWIRE_H
 #define LIBCIRCLEWIRE_H
+
+#include <libpolyhedra.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,6 +104,13 @@ struct lcw_properties {
   float max[2];
 };
 
+enum lcw_solid_type {
+  lcw_extrude,
+  lcw_revolve
+};
+
+struct lcw_solid;
+
 /*************************************************************************/
 /* Functions that work on any wire                                       */
 /*************************************************************************/
@@ -118,6 +147,7 @@ int LCW_IsClosed(const struct lcw_wire *wire);
 int LCW_WireLoop(struct lcw_wire *wire); /* Undo VattiClip */
 int LCW_IsVatti(const struct lcw_wire *wire);
 struct lcw_wire *LCW_ToPolygon(const struct lcw_wire *wire, float tol);
+struct lp_vertex_list *LCW_Mesh(const struct lcw_wire *wire, float tol);
 int LCW_Properties(struct lcw_properties *prop, const struct lcw_wire *wire);
 
 /*************************************************************************/
@@ -127,6 +157,18 @@ int LCW_VattiClip(struct lcw_wire *wire);
 struct lcw_wire *LCW_ConvexHull(const struct lcw_wire *wire);
 struct lcw_list *LCW_CutAtX(const struct lcw_wire *wire, float xval);
 struct lcw_list *LCW_ConvexDecomp(const struct lcw_wire *wire, float tol);
+
+/* 3D Solid functions */
+struct lcw_solid *LCW_Solid(const struct lcw_wire *wire, enum lcw_solid_type type, const float *param, size_t num_params);
+void LCW_SolidFree(struct lcw_solid *solid);
+enum lcw_solid_type LCW_SolidType(const struct lcw_solid *solid);
+const struct lcw_wire *LCW_SolidWire(const struct lcw_solid *solid);
+const float *LCW_SolidParams(const struct lcw_solid *solid);
+size_t LCW_SolidNumParams(const struct lcw_solid *solid);
+
+int LCW_SolidProperties(struct lp_mass_properties *prop, const struct lcw_solid *solid);
+struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol);
+struct lp_vl_list *LCW_SolidConvexDecomp(const struct lcw_solid *solid, float dtol, float ptol);
 
 /*************************************************************************/
 /* Error functions                                                       */

@@ -35,6 +35,7 @@ libcirclewire_la_SOURCES = \
 	decomp.c \
 	hull.c \
 	prop.c \
+	solid.c \
 	str.c \
 	svg.c \
 	svg_parse.c \

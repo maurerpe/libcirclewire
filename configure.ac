@@ -47,6 +47,7 @@ AC_PROG_MAKE_SET
 
 # Checks for libraries.
 AC_SEARCH_LIBS([asinf], [m], [], [AC_MSG_ERROR([Unable to find the asinf() function])])
+AC_SEARCH_LIBS([LP_VertexList_New], [polyhedra], [], [AC_MSG_ERROR([Unable to find the LP_VertexList_New function: Is libpolyhedra installed])])
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdint.h])

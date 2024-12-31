@@ -61,5 +61,6 @@ Makefile
 *.la
 *.log
 *.trs
+*.obj
 *.svg
 test/circlewire_test

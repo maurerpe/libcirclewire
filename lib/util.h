@@ -39,6 +39,8 @@ float Norm(const float *a);
 void Normalize(float *a);
 
 float ArcCenter(float *cent, const float *a, const float *b, float alpha);
+size_t RevRequiredSegs(float ang, float rad, float tol);
+size_t RequiredSegs(float dist, float alpha, float tol);
 
 /* 0 <= t <= 1 */
 void EvalSeg(float *pt, const float *a, const float *b, float alpha, float t);

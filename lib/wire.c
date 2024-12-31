@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include <limits.h>
 #include <math.h>
 #include <string.h>
 
@@ -59,7 +60,7 @@ int EnsureAlloc(struct lcw_wire *wire, size_t num, int slot) {
   wire->num_alloc[slot] = num_alloc;
   
   return LCW_NO_ERROR;
-};
+}
 
 struct lcw_wire *LCW_New(float seg_combine_tol) {
   struct lcw_wire *wire;
@@ -430,7 +431,7 @@ static int ToPoly(struct lcw_wire *dst, const struct lcw_wire *src, float tol) {
   int ret;
   size_t idx, slot;
   ssize_t num, cnt;
-  float dist, alpha, aa, ratio, N, t, pt[2];
+  float dist, alpha, t, pt[2];
   
   Reset(dst, src->seg[0][0].pt, IS_VATTI(src));
   for (slot = 0; slot < 2; slot++) {
@@ -438,13 +439,7 @@ static int ToPoly(struct lcw_wire *dst, const struct lcw_wire *src, float tol) {
     for (idx = 0; idx + 1 < src->num_seg[slot]; idx++, seg++) {
       dist = Dist(seg[0].pt, seg[1].pt);
       alpha = seg[1].alpha;
-      aa = fabsf(alpha);
-      ratio = tol / dist;
-      if (aa < 0.1)
-	N = 0.5 * sqrtf(aa / ratio);
-      else
-	N = asinf(aa) / acosf(1 - 2 * ratio * aa);
-      num = ceilf(N);
+      num = RequiredSegs(dist, alpha, tol);
       for (cnt = 1; cnt < num; cnt++) {
 	t = ((float) cnt) / num;
 	EvalSeg(pt, seg[0].pt, seg[1].pt, alpha, t);
@@ -471,6 +466,41 @@ struct lcw_wire *LCW_ToPolygon(const struct lcw_wire *wire, float tol) {
   
   return poly;
 
+ err2:
+  LCW_Free(poly);
+ err:
+  return NULL;
+}
+
+struct lp_vertex_list *LCW_Mesh(const struct lcw_wire *wire, float tol) {
+  struct lcw_wire *poly;
+  struct lp_vertex_list *vl, *vl2;
+  size_t slot, idx;
+
+  if ((poly = LCW_ToPolygon(wire, tol)) == NULL)
+    goto err;
+  
+  if ((vl = LP_VertexList_New(2, lp_pt_line)) == NULL)
+    goto err2;
+  
+  for (slot = 0; slot < 2; slot++) {
+    for (idx = 1; idx < poly->num_seg[slot]; idx++) {
+      if (LP_VertexList_Add(vl, poly->seg[slot][idx - 1].pt) == UINT_MAX)
+	goto err3;
+      if (LP_VertexList_Add(vl, poly->seg[slot][idx].pt) == UINT_MAX)
+	goto err3;
+    }
+  }
+  
+  if ((vl2 = LP_Triangulate2D(vl)) == NULL)
+    goto err3;
+  
+  LP_VertexList_Free(vl);
+  LCW_Free(poly);
+  return vl2;
+
+ err3:
+  LP_VertexList_Free(vl);
  err2:
   LCW_Free(poly);
  err:
