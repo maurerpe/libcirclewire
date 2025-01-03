@@ -359,6 +359,9 @@ static void Prop(struct lcw_properties *prop, const struct lcw_wire *wire) {
       Ext_Circle(prop, cur->pt, next->pt, next->alpha);
   }
   
+  if (!LCW_IsClosed(wire))
+    return;
+  
   ref[X] = 0.5f * (prop->max[X] + prop->min[X]);
   ref[Y] = 0.5f * (prop->max[Y] + prop->min[Y]);
   
@@ -385,9 +388,6 @@ static void Prop(struct lcw_properties *prop, const struct lcw_wire *wire) {
 int LCW_Properties(struct lcw_properties *prop, const struct lcw_wire *wire) {
   struct lcw_wire *cp;
   int ret;
-  
-  if (!LCW_IsClosed(wire))
-    return LCW_WIRE_NOT_CLOSED;
   
   if (!IS_VATTI(wire)) {
     Prop(prop, wire);

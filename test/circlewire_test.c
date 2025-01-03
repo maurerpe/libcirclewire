@@ -513,11 +513,12 @@ static int DecompTest(const char *msg, const char *path, const char *svg_filenam
   return ret_val;
 }
 
-static int SolidTest(const char *msg, const char *path, enum lcw_solid_type type, const float *param, size_t num_param, const char *obj_path) {
+static int SolidTest(const char *msg, const char *path, enum lcw_solid_type type, const float *param, size_t num_param, const char *obj_path, const char *sten_path) {
   struct lcw_wire *wire;
   struct lcw_solid *solid;
   struct lp_mass_properties sprop, mprop;
   struct lp_vertex_list *mesh;
+  struct lcw_list *sten = NULL;
   struct lp_vl_list *decomp, *out, *mesh_list;
   int ret_val = 0;
   
@@ -539,7 +540,7 @@ static int SolidTest(const char *msg, const char *path, enum lcw_solid_type type
     goto err3;
   }
   
-  if ((mesh = LCW_SolidMesh(solid, 1e-4)) == NULL) {
+  if ((mesh = LCW_SolidMesh(solid, 1e-4, &sten)) == NULL) {
     fprintf(stderr, "%s: Could not mesh solid\n", msg);
     ret_val = -1;
   }
@@ -575,12 +576,18 @@ static int SolidTest(const char *msg, const char *path, enum lcw_solid_type type
     ret_val = -1;
   }
   
+  if (sten_path && LCW_ListToSvg(sten_path, sten, "mm", 0) < 0) {
+    fprintf(stderr, "%s: Could not write out stencil to '%s'\n", msg, sten_path);
+    ret_val = -1;
+  }
+  
   /* Fall through */
 
   LP_VertexList_ListFree(out);
  err4:
   LP_VertexList_ListFree(mesh_list);
   LP_VertexList_ListFree(decomp);
+  LCW_ListFree(sten, 1);
   LP_VertexList_Free(mesh);
  err3:
   LCW_SolidFree(solid);
@@ -657,7 +664,8 @@ int main(void) {
 		lcw_extrude,
 		ext_param,
 		sizeof(ext_param) / sizeof(*ext_param),
-		"first_arc_extrude.obj") < 0)
+		"first_arc_extrude.obj",
+		"first_arc_extrude_stencil.svg") < 0)
     exit(1);
   
   if (SolidTest("First arc revolve",
@@ -665,7 +673,8 @@ int main(void) {
 		lcw_revolve,
 		rev_param,
 		sizeof(rev_param) / sizeof(*rev_param),
-		"first_arc_revolve.obj") < 0)
+		"first_arc_revolve.obj",
+		"first_arc_revolve_stencil.svg") < 0)
     exit(1);
   
   if (SolidTest("Arc extrude",
@@ -673,7 +682,17 @@ int main(void) {
 		lcw_extrude,
 		ext_param,
 		sizeof(ext_param) / sizeof(*ext_param),
-		"arc_extrude.obj") < 0)
+		"arc_extrude.obj",
+		"arc_extrude_stencil.svg") < 0)
+    exit(1);
+  
+  if (SolidTest("First arc full revolve",
+		first_arc_path,
+		lcw_revolve,
+		NULL,
+		0,
+		"first_arc_full_revolve.obj",
+		"first_arc_full_revolve_stencil.svg") < 0)
     exit(1);
   
   fprintf(stderr, "All tests passed\n");

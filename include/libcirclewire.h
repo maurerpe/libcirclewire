@@ -57,7 +57,7 @@
 
       Parameters:
       Index   Name          Range    Default   Description
-      0       Half Angle    (0,pi)   -         Half angle of the revolution
+      0       Half Angle    (0,pi]   pi        Half angle of the revolution
 */
 
 #ifndef LIBCIRCLEWIRE_H
@@ -149,6 +149,7 @@ int LCW_IsVatti(const struct lcw_wire *wire);
 struct lcw_wire *LCW_ToPolygon(const struct lcw_wire *wire, float tol);
 struct lp_vertex_list *LCW_Mesh(const struct lcw_wire *wire, float tol);
 int LCW_Properties(struct lcw_properties *prop, const struct lcw_wire *wire);
+float LCW_TotalArcLen(const struct lcw_wire *wire);
 
 /*************************************************************************/
 /* Funcitons that require the wire to be Vatti singular                  */
@@ -167,7 +168,7 @@ const float *LCW_SolidParams(const struct lcw_solid *solid);
 size_t LCW_SolidNumParams(const struct lcw_solid *solid);
 
 int LCW_SolidProperties(struct lp_mass_properties *prop, const struct lcw_solid *solid);
-struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol);
+struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, struct lcw_list **stencil_out);
 struct lp_vl_list *LCW_SolidConvexDecomp(const struct lcw_solid *solid, float dtol, float ptol);
 
 /*************************************************************************/

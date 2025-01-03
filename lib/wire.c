@@ -389,7 +389,7 @@ int LCW_MirrorX(struct lcw_wire *wire) {
 
 void LCW_MirrorY(struct lcw_wire *wire) {
   struct lcw_seg *seg;
-  size_t idx, slot;
+  size_t idx, slot, tmp;
   
   for (slot = 0; slot < 2; slot++) {
     seg = wire->seg[slot];
@@ -397,6 +397,18 @@ void LCW_MirrorY(struct lcw_wire *wire) {
       seg->pt[1] = -seg->pt[1];
       seg->alpha = -seg->alpha;
     }
+  }
+  
+  if (wire->num_seg[1] > 0) {
+    seg = wire->seg[0];
+    wire->seg[0] = wire->seg[1];
+    wire->seg[1] = seg;
+    tmp = wire->num_seg[0];
+    wire->num_seg[0] = wire->num_seg[1];
+    wire->num_seg[1] = tmp;
+    tmp = wire->num_alloc[0];
+    wire->num_alloc[0] = wire->num_alloc[1];
+    wire->num_alloc[1] = tmp;
   }
 }
 
@@ -470,6 +482,17 @@ struct lcw_wire *LCW_ToPolygon(const struct lcw_wire *wire, float tol) {
   LCW_Free(poly);
  err:
   return NULL;
+}
+
+float LCW_TotalArcLen(const struct lcw_wire *wire) {
+  size_t slot, idx;
+  float tot = 0;
+
+  for (slot = 0; slot < 2; slot++)
+    for (idx = 1; idx < wire->num_seg[slot]; idx++)
+      tot += ArcLen(wire->seg[slot][idx-1].pt, wire->seg[slot][idx].pt, wire->seg[slot][idx].alpha);
+  
+  return tot;
 }
 
 struct lp_vertex_list *LCW_Mesh(const struct lcw_wire *wire, float tol) {

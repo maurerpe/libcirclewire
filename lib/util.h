@@ -46,6 +46,7 @@ size_t RequiredSegs(float dist, float alpha, float tol);
 void EvalSeg(float *pt, const float *a, const float *b, float alpha, float t);
 void SplitSeg(float *pt, float *a1, float *a2, const float *a, const float *b, float alpha, float tt);
 float EvalAngle(const float *a, const float *b, float alpha, float t);
+float ArcLen(const float *a, const float *b, float alpha);
 
 float TatX(const float *a, const float *b, float alpha, float xval);
 

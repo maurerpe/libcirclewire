@@ -192,6 +192,15 @@ float EvalAngle(const float *a, const float *b, float alpha, float t) {
   return ang;
 }
 
+float ArcLen(const float *a, const float *b, float alpha) {
+  float dd;
+
+  dd = Dist(a, b);
+  if (alpha == 0)
+    return dd;
+  return dd / (2 * alpha) * asinf(alpha);
+}
+
 static float Limit01(float val) {
   return fmaxf(0, fminf(1, val));
 }
