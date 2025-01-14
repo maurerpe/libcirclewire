@@ -83,7 +83,7 @@ float ArcCenter(float *cent, const float *a, const float *b, float alpha) {
   delta[1] = b[1] - a[1];
   dd  = Norm(delta);
   rad = dd / (2 * alpha);
-  leg = dd * sqrtf(1 - alpha * alpha) / (2 * alpha);
+  leg = rad * sqrtf(1 - alpha * alpha);
   perp[0] = -delta[1] / dd;
   perp[1] =  delta[0] / dd;
   cent[0] = (a[0] + b[0]) / 2 + leg * perp[0];
@@ -198,7 +198,7 @@ float ArcLen(const float *a, const float *b, float alpha) {
   dd = Dist(a, b);
   if (alpha == 0)
     return dd;
-  return dd / (2 * alpha) * asinf(alpha);
+  return dd * asinf(alpha) / alpha;
 }
 
 static float Limit01(float val) {

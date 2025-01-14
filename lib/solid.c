@@ -53,13 +53,13 @@ struct lcw_solid *LCW_Solid(const struct lcw_wire *wire, enum lcw_solid_type typ
   if ((solid = malloc(sizeof(*solid))) == NULL)
     goto err;
   memset(solid, 0, sizeof(*solid));
-
+  LCW_Properties(&prop, wire);
+  
   solid->type = type;
   switch (type) {
   case lcw_extrude:
-    LCW_Properties(&prop, wire);
-    dx = -prop.center_of_mass[0];
-    dy = -prop.center_of_mass[1];
+    dx = -prop.center_of_mass[LCW_X];
+    dy = -prop.center_of_mass[LCW_Y];
     
     if (num_params < 1 || num_params > 3)
       goto err2;
@@ -71,7 +71,7 @@ struct lcw_solid *LCW_Solid(const struct lcw_wire *wire, enum lcw_solid_type typ
       solid->param[1] = param[1];
     else
       goto err2;
-
+    
     if (num_params < 3)
       solid->param[2] = 0;
     else if (param[2] > -M_PI && param[2] < M_PI)
@@ -81,7 +81,8 @@ struct lcw_solid *LCW_Solid(const struct lcw_wire *wire, enum lcw_solid_type typ
     break;
     
   case lcw_revolve:
-    LCW_Properties(&prop, wire);
+    dx = -(prop.center_of_mass[LCW_X] + prop.second_moment[LCW_XY] / (prop.area * prop.center_of_mass[LCW_Y]));
+    
     if (prop.min[1] < 0)
       goto err2;
     
@@ -187,9 +188,9 @@ int LCW_SolidProperties(struct lp_mass_properties *prop, const struct lcw_solid 
     Ixyy = prop2d.third_moment_x[LCW_Y]  - prop2d.area * cy * dx * dx;
     Ixxy = prop2d.third_moment_x[LCW_XY] - prop2d.area * cy * dx * dy;
     q = prop2d.area * cy * rcyl * rcyl;
-    j = (q + Ixxx) * sin(2 * ang) / 2;
+    j = (q + Ixxx) * sinf(2 * ang) / 2;
     k = (q + Ixxx + 2 * Ixyy) * ang;
-    sin_a = sin(ang);
+    sin_a = sinf(ang);
     if (ang == 0)
       sinc_a = 0;
     else
@@ -208,6 +209,55 @@ int LCW_SolidProperties(struct lp_mass_properties *prop, const struct lcw_solid 
   }
   
   return LCW_NO_ERROR;
+}
+
+static void Check_Rad(float *rad, const struct lcw_wire *wire, float ang, const float *center) {
+  float ca, sa, c2[2], rad2d, dist, dd;
+  
+  ca = cosf(ang);
+  sa = sinf(ang);
+  c2[0] = center[0];
+  c2[1] = center[1] * ca + center[2] * sa;
+  rad2d = LCW_BoundingCircle(wire, c2);
+  dist = center[2] * ca - center[1] * sa;
+  dd = sqrtf(rad2d * rad2d + dist * dist);
+  if (dd > *rad)
+    *rad = dd;
+}
+
+float LCW_SolidBoundingSphere(const struct lcw_solid *solid, const float *center) {
+  float h, scale, tan_sw, dz, c2[2], rad2d, rad, dd, ang, aa;
+  
+  if (solid->type == lcw_extrude) {
+    h = 2 * solid->param[0];
+    scale = solid->param[1];
+    tan_sw = tan(solid->param[2]);
+
+    dz = h - center[2];
+    c2[0] = (center[0] - tan_sw * h) / scale;
+    c2[1] =  center[1]               / scale;
+    rad2d = LCW_BoundingCircle(solid->wire, c2) * scale;
+    rad = sqrtf(rad2d * rad2d + dz + dz);
+    
+    dz = -h - center[2];
+    c2[0] = (center[0] + tan_sw * h) / (2 - scale);
+    c2[1] =  center[1]               / (2 - scale);
+    rad2d = LCW_BoundingCircle(solid->wire, c2) * (2 - scale);
+    dd = sqrtf(rad2d * rad2d + dz * dz);
+    if (dd > rad)
+      rad = dd;
+  } else {
+    ang = solid->param[0];
+
+    rad = 0;
+    Check_Rad(&rad, solid->wire, ang, center);
+    Check_Rad(&rad, solid->wire, -ang, center);
+    aa = atan2(center[2], center[1]);
+    if (fabsf(aa) < ang)
+      Check_Rad(&rad, solid->wire, aa, center);
+  }
+
+  return rad;
 }
 
 static int SamePt(const float *pt1, const float *pt2, float comb_tol) {
@@ -471,8 +521,8 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
       inum  = LP_VertexList_NumInd(end);
       ind   = LP_VertexList_GetInd(end);
       vbase = LP_VertexList_GetVert(end);
-      csa   = cos(ang);
-      sna   = sin(ang);
+      csa   = cosf(ang);
+      sna   = sinf(ang);
       xmid  = (prop.max[0] + prop.min[0]) / 2;
       xoff  = 2.15 * h + 1.5 * (prop.max[0] - prop.min[0]);
       ymid  = (prop.max[1] + prop.min[0]) / 2;
@@ -578,10 +628,10 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
     for (cnt = 0; cnt < num; cnt++) {
       ang1 = ((float) cnt) / num * 2 * ang - ang;
       ang2 = ((float) (cnt + 1)) / num * 2 * ang - ang;
-      cos_a1 = cos(ang1);
-      sin_a1 = sin(ang1);
-      cos_a2 = cos(ang2);
-      sin_a2 = sin(ang2);
+      cos_a1 = cosf(ang1);
+      sin_a1 = sinf(ang1);
+      cos_a2 = cosf(ang2);
+      sin_a2 = sinf(ang2);
       carc = -0.5 * tarc;
       seg = &poly->seg[0][1];
       for (idx = 1; idx < poly->num_seg[0]; idx++, seg++) {
@@ -788,8 +838,8 @@ static int AddRevolve(struct lcw_wire *poly, const float *param, struct lp_vl_li
     
     for (pcnt = 0; pcnt <= pnum; pcnt++) {
       aa = da * pcnt / pnum + start;
-      ca = cos(aa);
-      sa = sin(aa);
+      ca = cosf(aa);
+      sa = sinf(aa);
       seg = poly->seg[0];
       for (cnt = 0; cnt < ns; cnt++, seg++) {
 	vert[0] = seg->pt[0];

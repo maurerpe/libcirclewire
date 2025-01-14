@@ -31,6 +31,7 @@ AM_CPPFLAGS = -Wall -I../include
 lib_LTLIBRARIES = libcirclewire.la
 
 libcirclewire_la_SOURCES = \
+	bound.c \
 	cut.c \
 	decomp.c \
 	hull.c \

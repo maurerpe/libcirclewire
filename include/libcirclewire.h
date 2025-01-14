@@ -77,7 +77,6 @@ extern "C" {
 struct lcw_seg {
   float pt[2];
   float alpha; /* alpha = dist / (2 * radius) */
-  uint32_t flags; /* Reserved */
 };
 
 struct lcw_wire;
@@ -149,6 +148,7 @@ int LCW_IsVatti(const struct lcw_wire *wire);
 struct lcw_wire *LCW_ToPolygon(const struct lcw_wire *wire, float tol);
 struct lp_vertex_list *LCW_Mesh(const struct lcw_wire *wire, float tol);
 int LCW_Properties(struct lcw_properties *prop, const struct lcw_wire *wire);
+float LCW_BoundingCircle(const struct lcw_wire *wire, const float *center);
 float LCW_TotalArcLen(const struct lcw_wire *wire);
 
 /*************************************************************************/
@@ -168,11 +168,12 @@ const float *LCW_SolidParams(const struct lcw_solid *solid);
 size_t LCW_SolidNumParams(const struct lcw_solid *solid);
 
 int LCW_SolidProperties(struct lp_mass_properties *prop, const struct lcw_solid *solid);
+float LCW_SolidBoundingSphere(const struct lcw_solid *solid, const float *center);
 struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, struct lcw_list **stencil_out);
 struct lp_vl_list *LCW_SolidConvexDecomp(const struct lcw_solid *solid, float dtol, float ptol);
 
 /*************************************************************************/
-/* Error functions                                                       */
+/* Error Constants                                                       */
 /*************************************************************************/
 #define LCW_NO_ERROR               0
 #define LCW_OUT_OF_MEMORY         -1
