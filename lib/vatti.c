@@ -38,6 +38,8 @@
 #include "util.h"
 #include "vatti.h"
 
+#define T_TOL 1e-6f
+
 static int SegHasVert(const float *a, const float *b, float alpha, float *tt) {
   float hang, dx, dy, ctr;
   
@@ -87,7 +89,7 @@ struct extreme_info {
   float pt[2];
 };
 
-static void ExtremeX(const struct lcw_wire *wire, size_t start, size_t stop, struct extreme_info *left_ei, struct extreme_info *right_ei) {
+static void ExtremeX(const struct lcw_wire *wire, int slot, size_t start, size_t stop, struct extreme_info *left_ei, struct extreme_info *right_ei) {
   const struct lcw_seg *seg;
   struct extreme_info rei, lei;
   size_t idx;
@@ -96,11 +98,11 @@ static void ExtremeX(const struct lcw_wire *wire, size_t start, size_t stop, str
   memset(&rei, 0, sizeof(rei));
   memset(&lei, 0, sizeof(lei));
   rei.idx = lei.idx = start;
-  rei.pt[0] = lei.pt[0] = wire->seg[0][start].pt[0];
-  rei.pt[1] = lei.pt[1] = wire->seg[0][start].pt[1];
+  rei.pt[0] = lei.pt[0] = wire->seg[slot][start].pt[0];
+  rei.pt[1] = lei.pt[1] = wire->seg[slot][start].pt[1];
   
   for (idx = start; idx < stop; idx++) {
-    seg = &wire->seg[0][idx];
+    seg = &wire->seg[slot][idx];
     if (SegHasVert(seg[0].pt, seg[1].pt, seg[1].alpha, &tt) && tt > 0 && tt < 1) {
       EvalSeg(pt, seg[0].pt, seg[1].pt, seg[1].alpha, tt);
       CHECK_EXTREME(pt, idx, tt, rei, >);
@@ -109,8 +111,8 @@ static void ExtremeX(const struct lcw_wire *wire, size_t start, size_t stop, str
     CHECK_EXTREME(seg[0].pt, idx, 0, rei, >);
     CHECK_EXTREME(seg[0].pt, idx, 0, lei, <);
   }
-  CHECK_EXTREME(wire->seg[0][stop].pt, stop-1, 1, rei, >);
-  CHECK_EXTREME(wire->seg[0][stop].pt, stop-1, 1, lei, <);
+  CHECK_EXTREME(wire->seg[slot][stop].pt, stop-1, 1, rei, >);
+  CHECK_EXTREME(wire->seg[slot][stop].pt, stop-1, 1, lei, <);
   
   if (right_ei)
     memcpy(right_ei, &rei, sizeof(*right_ei));
@@ -118,8 +120,8 @@ static void ExtremeX(const struct lcw_wire *wire, size_t start, size_t stop, str
     memcpy(left_ei, &lei, sizeof(*left_ei));  
 }
 
-static void FarthestLeft(const struct lcw_wire *wire, struct extreme_info *ei) {
-  ExtremeX(wire, 0, wire->num_seg[0] - 1, ei, NULL);
+static void FarthestLeft(const struct lcw_wire *wire, int slot, struct extreme_info *ei) {
+  ExtremeX(wire, slot, 0, wire->num_seg[0] - 1, ei, NULL);
 }
 
 static int ClipFwd(struct lcw_wire *nn, const struct lcw_wire *oo, size_t idx, int slot) {
@@ -132,7 +134,7 @@ static int ClipFwd(struct lcw_wire *nn, const struct lcw_wire *oo, size_t idx, i
   cnt = ns;
   while (1) {
     seg = &oo->seg[0][idx];
-    if (SegHasVert(seg[0].pt, seg[1].pt, seg[1].alpha, &tt) && tt > 0 && tt < 1) {
+    if (SegHasVert(seg[0].pt, seg[1].pt, seg[1].alpha, &tt) && tt > T_TOL && tt < 1 - T_TOL) {
       SplitSeg(pt, &a1, &a2, seg[0].pt, seg[1].pt, seg[1].alpha, tt);
       if ((ret = To(nn, pt, a1, slot)) < 0)
 	return ret;
@@ -160,7 +162,7 @@ static int ClipRev(struct lcw_wire *nn, const struct lcw_wire *oo, size_t idx, i
   cnt = ns;
   while (1) {
     seg = &oo->seg[0][idx];
-    if (SegHasVert(seg[0].pt, seg[1].pt, seg[1].alpha, &tt) && tt > 0 && tt < 1) {
+    if (SegHasVert(seg[0].pt, seg[1].pt, seg[1].alpha, &tt) && tt > T_TOL && tt < 1 - T_TOL) {
       SplitSeg(pt, &a1, &a2, seg[0].pt, seg[1].pt, seg[1].alpha, tt);
       if ((ret = To(nn, pt, -a2, slot)) < 0)
 	return ret;
@@ -181,11 +183,12 @@ static int ClipRev(struct lcw_wire *nn, const struct lcw_wire *oo, size_t idx, i
 struct merge_info {
   struct lcw_wire *wire;
   size_t idx;
+  int slot
 };
 
 static void ExtremeX_Merge(const struct merge_info *mi, float *min, float *max) {
   struct extreme_info rei, lei;
-  ExtremeX(mi->wire, mi->idx, mi->idx + 1, &lei, &rei);
+  ExtremeX(mi->wire, mi->slot, mi->idx, mi->idx + 1, &lei, &rei);
   if (min)
     *min = lei.pt[0];
   if (max)
@@ -230,17 +233,24 @@ int VattiVerify(const struct lcw_wire *wire) {
   
   tns = wire->num_seg[1] - 1;
   bns = wire->num_seg[0] - 1;
-  if (wire->seg[1][0  ].pt[0] != wire->seg[0][0  ].pt[0] ||
-      wire->seg[1][0  ].pt[1] != wire->seg[0][0  ].pt[1] ||
-      wire->seg[1][tns].pt[0] != wire->seg[0][bns].pt[0] ||
-      wire->seg[1][tns].pt[1] != wire->seg[0][bns].pt[1]) {
+  if (fabsf(wire->seg[1][0  ].pt[0] - wire->seg[0][0  ].pt[0]) > wire->comb_tol ||
+      fabsf(wire->seg[1][0  ].pt[1] - wire->seg[0][0  ].pt[1]) > wire->comb_tol ||
+      fabsf(wire->seg[1][tns].pt[0] - wire->seg[0][bns].pt[0]) > wire->comb_tol ||
+      fabsf(wire->seg[1][tns].pt[1] - wire->seg[0][bns].pt[1]) > wire->comb_tol) {
     return LCW_WIRE_NOT_VATTI_SINGLE;
   }
-
+  
+  wire->seg[1][0  ].pt[0] = wire->seg[0][0  ].pt[0];
+  wire->seg[1][0  ].pt[1] = wire->seg[0][0  ].pt[1];
+  wire->seg[1][tns].pt[0] = wire->seg[0][bns].pt[0];
+  wire->seg[1][tns].pt[1] = wire->seg[0][bns].pt[1];
+  
   memset(&tinfo, 0, sizeof(tinfo));
   memset(&binfo, 0, sizeof(binfo));
   tinfo.wire = (struct lcw_wire *) wire;
   binfo.wire = (struct lcw_wire *) wire;
+  tinfo.slot = 1;
+  binfo.slot = 0;
   while (tinfo.idx < tns - 1 || binfo.idx < bns - 1) {
     if (!Compatible(&tinfo, &binfo))
       return LCW_WIRE_NOT_VATTI_SINGLE;
@@ -287,9 +297,9 @@ int LCW_VattiClip(struct lcw_wire *wire) {
   }
   
   ns = wire->num_seg[0] - 1;
-  FarthestLeft(wire, &ei);
+  FarthestLeft(wire, 0, &ei);
   seg = &wire->seg[0][ei.idx];
-  if (ei.tt > 0 && ei.tt < 1) {
+  if (ei.tt > T_TOL && ei.tt < 1 - T_TOL) {
     SplitSeg(pt, &a1, &a2, seg[0].pt, seg[1].pt, seg[1].alpha, ei.tt);
     Reset(va, pt, 1);
     slot = seg[0].pt[1] < seg[1].pt[1] ? 0 : 1;

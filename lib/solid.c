@@ -74,7 +74,7 @@ struct lcw_solid *LCW_Solid(const struct lcw_wire *wire, enum lcw_solid_type typ
     
     if (num_params < 3)
       solid->param[2] = 0;
-    else if (param[2] > -M_PI && param[2] < M_PI)
+    else if (param[2] > -M_PI + 1e-6 && param[2] < M_PI - 1e-6)
       solid->param[2] = param[2];
     else
       goto err2;
@@ -91,7 +91,7 @@ struct lcw_solid *LCW_Solid(const struct lcw_wire *wire, enum lcw_solid_type typ
 
     if (num_params < 1)
       solid->param[0] = M_PI;
-    else if (param[0] > 0 && param[0] <= M_PI)
+    else if (param[0] > 0 && param[0] <= M_PI + 1e-6)
       solid->param[0] = param[0];
     else
       goto err2;
