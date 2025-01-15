@@ -335,7 +335,7 @@ void LCW_Scale(struct lcw_wire *wire, float cx, float cy, float scale) {
     seg = wire->seg[slot];
     for (idx = 0; idx < wire->num_seg[slot]; idx++, seg++) {
       seg->pt[0] = (seg->pt[0] - cx) * scale + cx;
-      seg->pt[1] +=(seg->pt[1] - cy) * scale + cy;
+      seg->pt[1] = (seg->pt[1] - cy) * scale + cy;
     }
   }
 }
