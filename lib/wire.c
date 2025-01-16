@@ -495,10 +495,11 @@ float LCW_TotalArcLen(const struct lcw_wire *wire) {
   return tot;
 }
 
-struct lp_vertex_list *LCW_Mesh(const struct lcw_wire *wire, float tol) {
+struct lp_vertex_list *LCW_Mesh(const struct lcw_wire *wire, float tol, float scale) {
   struct lcw_wire *poly;
   struct lp_vertex_list *vl, *vl2;
   size_t slot, idx;
+  float scpt[2];
 
   if ((poly = LCW_ToPolygon(wire, tol)) == NULL)
     goto err;
@@ -508,9 +509,13 @@ struct lp_vertex_list *LCW_Mesh(const struct lcw_wire *wire, float tol) {
   
   for (slot = 0; slot < 2; slot++) {
     for (idx = 1; idx < poly->num_seg[slot]; idx++) {
-      if (LP_VertexList_Add(vl, poly->seg[slot][idx - 1].pt) == UINT_MAX)
+      scpt[0] = poly->seg[slot][idx - 1].pt[0] * scale;
+      scpt[1] = poly->seg[slot][idx - 1].pt[1] * scale;
+      if (LP_VertexList_Add(vl, scpt) == UINT_MAX)
 	goto err3;
-      if (LP_VertexList_Add(vl, poly->seg[slot][idx].pt) == UINT_MAX)
+      scpt[0] = poly->seg[slot][idx].pt[0] * scale;
+      scpt[1] = poly->seg[slot][idx].pt[1] * scale;
+      if (LP_VertexList_Add(vl, scpt) == UINT_MAX)
 	goto err3;
     }
   }

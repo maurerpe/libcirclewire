@@ -183,7 +183,7 @@ static int ClipRev(struct lcw_wire *nn, const struct lcw_wire *oo, size_t idx, i
 struct merge_info {
   struct lcw_wire *wire;
   size_t idx;
-  int slot
+  int slot;
 };
 
 static void ExtremeX_Merge(const struct merge_info *mi, float *min, float *max) {

@@ -328,13 +328,13 @@ static int AddQuad(struct lp_vertex_list *vl, float *vert, float comb_tol) {
   return 0;
 }
 
-struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, struct lcw_list **stencil_out) {
+struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, float scale, struct lcw_list **stencil_out) {
   struct lcw_wire *poly;
   struct lcw_list *sten[4];
   struct lcw_seg *seg;
   struct lp_vertex_list *vl, *end;
   struct lcw_properties prop;
-  float vert[4 * 8], *vbase, *vv, h, scale, tan_sw, pt[2];
+  float vert[4 * 8], *vbase, *vv, h, escale, tan_sw, pt[2];
   float tarc, parc, carc, arc, xmid, xoff, ymid, yoff, xsc, ysc, asc;
   float ang, csa, sna, ang1, ang2, cos_a1, sin_a1, cos_a2, sin_a2;
   unsigned int *ind;
@@ -348,7 +348,7 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
   tarc = LCW_TotalArcLen(solid->wire);
   parc = LCW_TotalArcLen(poly);
   
-  if ((end = LCW_Mesh(poly, tol)) == NULL)
+  if ((end = LCW_Mesh(poly, tol, 1)) == NULL)
     goto err2;
 
   if ((vl = LP_VertexList_New(8, lp_pt_triangle)) == NULL)
@@ -368,7 +368,7 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
   
   if (solid->type == lcw_extrude) {
     h = solid->param[0];
-    scale = solid->param[1];
+    escale = solid->param[1];
     tan_sw = tan(solid->param[2]);
 
     fpv   = LP_VertexList_FloatsPerVert(end);
@@ -385,9 +385,9 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
     while (inum-- > 0) {
       off = 2 * (1 - vidx); // Switch ind 0 and 2
       vv = vbase + ind[off] * fpv;
-      vert[0] = vv[0] * scale + tan_sw * h;
-      vert[1] = vv[1] * scale;
-      vert[2] = h;
+      vert[0] = scale * (vv[0] * escale + tan_sw * h);
+      vert[1] = scale * (vv[1] * escale);
+      vert[2] = scale * h;
       vert[3] = 0;
       vert[4] = 0;
       vert[5] = 1;
@@ -429,9 +429,9 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
     xoff = 0.05 * h + 0.5 * (prop.max[0] - prop.min[0]);
     while (inum-- > 0) {
       vv = vbase + *ind * fpv;
-      vert[0] = vv[0] * (2 - scale) - tan_sw * h;
-      vert[1] = vv[1] * (2 - scale);;
-      vert[2] = -h;
+      vert[0] = scale * (vv[0] * (2 - escale) - tan_sw * h);
+      vert[1] = scale * (vv[1] * (2 - escale));
+      vert[2] = scale * -h;
       vert[3] = 0;
       vert[4] = 0;
       vert[5] = -1;
@@ -456,33 +456,33 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
     seg  = &poly->seg[0][1];
     for (idx = 1; idx < poly->num_seg[0]; idx++, seg++) {
       arc = ArcLen(seg[-1].pt, seg[0].pt, seg[0].alpha) * asc;
-      vert[ 0] = seg[-1].pt[0] * scale + tan_sw * h;
-      vert[ 1] = seg[-1].pt[1] * scale;
-      vert[ 2] = h;
+      vert[ 0] = scale * (seg[-1].pt[0] * escale + tan_sw * h);
+      vert[ 1] = scale * (seg[-1].pt[1] * escale);
+      vert[ 2] = scale * h;
       vert[ 3] = 0;
       vert[ 4] = 0;
       vert[ 5] = 0;
       vert[ 6] = (h + xoff) * xsc;
       vert[ 7] = ((ymid - carc) + yoff) * ysc;
-      vert[ 8] = seg[ 0].pt[0] * scale + tan_sw * h;
-      vert[ 9] = seg[ 0].pt[1] * scale;
-      vert[10] = h;
+      vert[ 8] = scale * (seg[ 0].pt[0] * escale + tan_sw * h);
+      vert[ 9] = scale * (seg[ 0].pt[1] * escale);
+      vert[10] = scale * h;
       vert[11] = 0;
       vert[12] = 0;
       vert[13] = 0;
       vert[14] = (h + xoff) * xsc;
       vert[15] = ((ymid - (carc + arc)) + yoff) * ysc;
-      vert[16] = seg[-1].pt[0] * (2 - scale) - tan_sw * h;
-      vert[17] = seg[-1].pt[1] * (2 - scale);
-      vert[18] = -h;
+      vert[16] = scale * (seg[-1].pt[0] * (2 - escale) - tan_sw * h);
+      vert[17] = scale * (seg[-1].pt[1] * (2 - escale));
+      vert[18] = scale * -h;
       vert[19] = 0;
       vert[20] = 0;
       vert[21] = 0;
       vert[22] = (-h + xoff) * xsc;
       vert[23] = ((ymid - carc) + yoff) * ysc;
-      vert[24] = seg[ 0].pt[0] * (2 - scale) - tan_sw * h;
-      vert[25] = seg[ 0].pt[1] * (2 - scale);
-      vert[26] = -h;
+      vert[24] = scale * (seg[ 0].pt[0] * (2 - escale) - tan_sw * h);
+      vert[25] = scale * (seg[ 0].pt[1] * (2 - escale));
+      vert[26] = scale * -h;
       vert[27] = 0;
       vert[28] = 0;
       vert[29] = 0;
@@ -532,9 +532,9 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
       while (inum-- > 0) {
 	off = 2 * (1 - vidx); // Switch ind 0 and 2
 	vv = vbase + ind[off] * fpv;
-	vert[0] = vv[0];
-	vert[1] = vv[1] * csa;
-	vert[2] = vv[1] * sna;
+	vert[0] = scale * vv[0];
+	vert[1] = scale * vv[1] * csa;
+	vert[2] = scale * vv[1] * sna;
 	vert[3] = 0;
 	vert[4] = -sna;
 	vert[5] = csa;
@@ -575,9 +575,9 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
       xoff = 0.05 * h + 0.5 * (prop.max[0] - prop.min[0]);
       while (inum-- > 0) {
 	vv = vbase + *ind * fpv;
-	vert[0] = vv[0];
-	vert[1] = vv[1] * csa;
-	vert[2] = vv[1] * -sna;
+	vert[0] = scale * vv[0];
+	vert[1] = scale * vv[1] * csa;
+	vert[2] = scale * vv[1] * -sna;
 	vert[3] = 0;
 	vert[4] = -sna;
 	vert[5] = -csa;
@@ -636,33 +636,33 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, s
       seg = &poly->seg[0][1];
       for (idx = 1; idx < poly->num_seg[0]; idx++, seg++) {
 	arc = ArcLen(seg[-1].pt, seg[0].pt, seg[0].alpha) * asc;
-	vert[ 0] = seg[-1].pt[0];
-	vert[ 1] = seg[-1].pt[1] * cos_a2;
-	vert[ 2] = seg[-1].pt[1] * sin_a2;
+	vert[ 0] = scale * seg[-1].pt[0];
+	vert[ 1] = scale * seg[-1].pt[1] * cos_a2;
+	vert[ 2] = scale * seg[-1].pt[1] * sin_a2;
 	vert[ 3] = 0;
 	vert[ 4] = 0;
 	vert[ 5] = 0;
 	vert[ 6] = (ang2 * seg[-1].pt[1] + xoff) * xsc;
 	vert[ 7] = ((ymid - carc) + yoff) * ysc;
-	vert[ 8] = seg[ 0].pt[0];
-	vert[ 9] = seg[ 0].pt[1] * cos_a2;
-	vert[10] = seg[ 0].pt[1] * sin_a2;
+	vert[ 8] = scale * seg[ 0].pt[0];
+	vert[ 9] = scale * seg[ 0].pt[1] * cos_a2;
+	vert[10] = scale * seg[ 0].pt[1] * sin_a2;
 	vert[11] = 0;
 	vert[12] = 0;
 	vert[13] = 0;
 	vert[14] = (ang2 * seg[ 0].pt[1] + xoff) * xsc;
 	vert[15] = ((ymid - (carc + arc)) + yoff) * ysc;
-	vert[16] = seg[-1].pt[0];
-	vert[17] = seg[-1].pt[1] * cos_a1;
-	vert[18] = seg[-1].pt[1] * sin_a1;
+	vert[16] = scale * seg[-1].pt[0];
+	vert[17] = scale * seg[-1].pt[1] * cos_a1;
+	vert[18] = scale * seg[-1].pt[1] * sin_a1;
 	vert[19] = 0;
 	vert[20] = 0;
 	vert[21] = 0;
 	vert[22] = (ang1 * seg[-1].pt[1] + xoff) * xsc;
 	vert[23] = ((ymid - carc) + yoff) * ysc;
-	vert[24] = seg[ 0].pt[0];
-	vert[25] = seg[ 0].pt[1] * cos_a1;
-	vert[26] = seg[ 0].pt[1] * sin_a1;
+	vert[24] = scale * seg[ 0].pt[0];
+	vert[25] = scale * seg[ 0].pt[1] * cos_a1;
+	vert[26] = scale * seg[ 0].pt[1] * sin_a1;
 	vert[27] = 0;
 	vert[28] = 0;
 	vert[29] = 0;
@@ -757,10 +757,10 @@ static int AddHull(struct lp_vl_list ***tail, const struct lp_vertex_list *vl) {
   return -1;
 }
 
-static int AddExtrude(struct lcw_wire *poly, const float *param, struct lp_vl_list ***tail) {
+static int AddExtrude(struct lcw_wire *poly, const float *param, struct lp_vl_list ***tail, float scale) {
   struct lp_vertex_list *vl;
   const struct lcw_seg *seg;
-  float h, scale, tan_sw, vert[3];
+  float h, escale, tan_sw, vert[3];
   size_t cnt, ns;
 
   if (LCW_WireLoop(poly) != LCW_NO_ERROR)
@@ -769,20 +769,20 @@ static int AddExtrude(struct lcw_wire *poly, const float *param, struct lp_vl_li
   if ((vl = LP_VertexList_New(3, lp_pt_point)) == NULL)
     goto err;
   h      = param[0];
-  scale  = param[1];
+  escale = param[1];
   tan_sw = tan(param[2]);
 
   seg = poly->seg[0];
   ns = poly->num_seg[0];
   for (cnt = 1; cnt < ns; cnt++, seg++) {
-    vert[0] = seg->pt[0] * scale + tan_sw * h;
-    vert[1] = seg->pt[1] * scale;
-    vert[2] = h;
+    vert[0] = scale * (seg->pt[0] * escale + tan_sw * h);
+    vert[1] = scale * (seg->pt[1] * escale);
+    vert[2] = scale * h;
     if (LP_VertexList_Add(vl, vert) == UINT_MAX)
       goto err2;
-    vert[0] = seg->pt[0] * (2 - scale) - tan_sw * h;
-    vert[1] = seg->pt[1] * (2 - scale);
-    vert[2] = -h;
+    vert[0] = scale * (seg->pt[0] * (2 - escale) - tan_sw * h);
+    vert[1] = scale * (seg->pt[1] * (2 - escale));
+    vert[2] = scale * -h;
     if (LP_VertexList_Add(vl, vert) == UINT_MAX)
       goto err2;
   }
@@ -799,7 +799,7 @@ static int AddExtrude(struct lcw_wire *poly, const float *param, struct lp_vl_li
   return -1;
 }
 
-static int AddRevolve(struct lcw_wire *poly, const float *param, struct lp_vl_list ***tail, float dtol, float ptol) {
+static int AddRevolve(struct lcw_wire *poly, const float *param, struct lp_vl_list ***tail, float dtol, float ptol, float scale) {
   struct lp_vertex_list *vl;
   struct lcw_seg *seg;
   struct lcw_properties prop;
@@ -842,9 +842,9 @@ static int AddRevolve(struct lcw_wire *poly, const float *param, struct lp_vl_li
       sa = sinf(aa);
       seg = poly->seg[0];
       for (cnt = 0; cnt < ns; cnt++, seg++) {
-	vert[0] = seg->pt[0];
-	vert[1] = seg->pt[1] * ca;
-	vert[2] = seg->pt[1] * sa;
+	vert[0] = scale * seg->pt[0];
+	vert[1] = scale * seg->pt[1] * ca;
+	vert[2] = scale * seg->pt[1] * sa;
 	if (LP_VertexList_Add(vl, vert) == UINT_MAX)
 	  goto err2;
       }
@@ -863,7 +863,7 @@ static int AddRevolve(struct lcw_wire *poly, const float *param, struct lp_vl_li
   return -1;
 }
 
-struct lp_vl_list *LCW_SolidConvexDecomp(const struct lcw_solid *solid, float dtol, float ptol) {
+struct lp_vl_list *LCW_SolidConvexDecomp(const struct lcw_solid *solid, float dtol, float ptol, float scale) {
   struct lp_vl_list *head = NULL, **tail = &head;
   struct lcw_list *decomp, *cur;
   struct lcw_wire *poly;
@@ -878,9 +878,9 @@ struct lp_vl_list *LCW_SolidConvexDecomp(const struct lcw_solid *solid, float dt
       goto err2;
 
     if (solid->type == lcw_extrude) {
-      if (AddExtrude(poly, solid->param, &tail) < 0)
+      if (AddExtrude(poly, solid->param, &tail, scale) < 0)
 	goto err3;
-    } else if (AddRevolve(poly, solid->param, &tail, dtol, ptol) < 0) {
+    } else if (AddRevolve(poly, solid->param, &tail, dtol, ptol, scale) < 0) {
       goto err3;
     }
     

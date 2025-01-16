@@ -535,7 +535,7 @@ static int SolidTest(const char *msg, const char *path, enum lcw_solid_type type
     goto err3;
   }
   
-  if ((mesh = LCW_SolidMesh(solid, 1e-4, &sten)) == NULL) {
+  if ((mesh = LCW_SolidMesh(solid, 1e-4, 1, &sten)) == NULL) {
     fprintf(stderr, "%s: Could not mesh solid\n", msg);
     ret_val = -1;
   }
@@ -544,7 +544,7 @@ static int SolidTest(const char *msg, const char *path, enum lcw_solid_type type
   if (Check_SolidProp(msg, &sprop, &mprop, POLY_TOL) < 0)
     ret_val = -1;
   
-  if ((decomp = LCW_SolidConvexDecomp(solid, 1e-2, 1e-4)) == NULL) {
+  if ((decomp = LCW_SolidConvexDecomp(solid, 1e-2, 1e-4, 1)) == NULL) {
     fprintf(stderr, "%s: Could not perform solid convex decomposition\n", msg);
     ret_val = -1;
   }

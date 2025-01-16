@@ -43,4 +43,4 @@ libcirclewire_la_SOURCES = \
 	util.c \
 	vatti.c \
 	wire.c
-libcirclewire_la_LDFLAGS = -export-symbols-regex '^LCW_' -version-info 0:0:0
+libcirclewire_la_LDFLAGS = -export-symbols-regex '^LCW_' -version-info 1:0:0
