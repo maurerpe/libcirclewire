@@ -488,7 +488,7 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, f
       vert[29] = 0;
       vert[30] = (-h + xoff) * xsc;
       vert[31] = ((ymid - (carc + arc)) + yoff) * ysc;
-      if (AddQuad(vl, vert, poly->comb_tol) < 0)
+      if (AddQuad(vl, vert, poly->comb_tol * scale) < 0)
 	goto err4;
       carc += arc;
     }
@@ -668,7 +668,7 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, f
 	vert[29] = 0;
 	vert[30] = (ang1 * seg[ 0].pt[1] + xoff) * xsc;
 	vert[31] = ((ymid - (carc + arc)) + yoff) * ysc;
-	if (AddQuad(vl, vert, poly->comb_tol) < 0)
+	if (AddQuad(vl, vert, poly->comb_tol * scale) < 0)
 	  goto err4;
 	carc += arc;
       }
