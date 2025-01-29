@@ -205,18 +205,8 @@ static float Limit01(float val) {
   return fmaxf(0, fminf(1, val));
 }
 
-static float Wrap(float val) {
-  float mm;
-  
-  mm = fmodf(val + M_PI, 2 * M_PI);
-  if (mm < 0)
-    mm += 2 * M_PI;
-  return mm - M_PI;
-}
-
 float TatX(const float *a, const float *b, float alpha, float xval) {
-  float asa, dd, idd, dx, dy, ra, nx, ny, ph, yy, ac, t1, t2;
-  float tt, ddx, ddy, pt[2], dxdt;
+  float tt, ddx, ddy, pt[2], dxdt, dx;
   int cnt;
   
   if (alpha == 0) {
@@ -225,37 +215,9 @@ float TatX(const float *a, const float *b, float alpha, float xval) {
     return Limit01((xval - a[0]) / (b[0] - a[0]));
   }
   
-  asa = asinf(alpha);
-  dd = Dist(a, b);
-  if (dd == 0)
+  if (Dist2(a, b) == 0)
     return 0.5f;
   
-  if (fabsf(alpha) >= 0.1) {
-    idd = 1 / dd;
-    dx = b[0] - a[0];
-    dy = b[1] - a[1];
-    yy = (b[1] - a[1]) * sqrt(1 - alpha * alpha);
-    ra = (yy + (2 * xval - b[0] - a[0]) * alpha) * idd;
-    if (alpha < 0) {
-      ra = -ra;
-      nx = -dy;
-      ny = dx;
-    } else {
-      nx = dy;
-      ny = -dx;
-    }
-    ph = -atan2(ny, nx);
-    if (ra > 1)
-      ac = 0;
-    else if (ra < -1)
-      ac = M_PI;
-    else
-      ac = acosf(ra);
-    t1 = Wrap(ph + ac) / (2 * asa);
-    t2 = Wrap(ph - ac) / (2 * asa);
-    return Limit01((fabsf(t1) < fabsf(t2) ? t1 : t2) + 0.5f);
-  }
-
   if (b[0] == a[0])
     tt = 0.25;
   else
