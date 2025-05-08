@@ -126,6 +126,13 @@ void LCW_SolidFree(struct lcw_solid *solid) {
   free(solid);
 }
 
+struct lcw_solid *LCW_SolidCopy(struct lcw_solid *solid) {
+  return LCW_Solid(LCW_SolidWire(solid),
+		   LCW_SolidType(solid),
+		   LCW_SolidParams(solid),
+		   LCW_SolidNumParams(solid));
+}
+
 enum lcw_solid_type LCW_SolidType(const struct lcw_solid *solid) {
   return solid->type;
 }
