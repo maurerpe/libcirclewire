@@ -126,7 +126,7 @@ void LCW_SolidFree(struct lcw_solid *solid) {
   free(solid);
 }
 
-struct lcw_solid *LCW_SolidCopy(struct lcw_solid *solid) {
+struct lcw_solid *LCW_SolidCopy(const struct lcw_solid *solid) {
   return LCW_Solid(LCW_SolidWire(solid),
 		   LCW_SolidType(solid),
 		   LCW_SolidParams(solid),
@@ -267,11 +267,11 @@ float LCW_SolidBoundingSphere(const struct lcw_solid *solid, const float *center
   return rad;
 }
 
-static int SamePt(const float *pt1, const float *pt2, float comb_tol) {
+static int SamePt(const float *pt1, const float *pt2) {
   return
-    fabsf(pt1[0] - pt2[0]) < comb_tol &&
-    fabsf(pt1[1] - pt2[1]) < comb_tol &&
-    fabsf(pt1[2] - pt2[2]) < comb_tol;
+    pt1[0] == pt2[0] &&
+    pt1[1] == pt2[1] &&
+    pt1[2] == pt2[2];
 }
 
 static void Cross(float *result, const float *a, const float *b) {
@@ -301,12 +301,12 @@ static float PlaneNorm(float *norm, const float *p1, const float *p2, const floa
   return mag;
 }
 
-static int AddTri(struct lp_vertex_list *vl, float *pt1, float *pt2, float *pt3, float comb_tol) {
+static int AddTri(struct lp_vertex_list *vl, float *pt1, float *pt2, float *pt3) {
   float norm[3];
   
-  if (SamePt(pt1, pt2, comb_tol) ||
-      SamePt(pt2, pt3, comb_tol) ||
-      SamePt(pt1, pt3, comb_tol))
+  if (SamePt(pt1, pt2) ||
+      SamePt(pt2, pt3) ||
+      SamePt(pt1, pt3))
     return 0;
   
   if (PlaneNorm(norm, pt1, pt2, pt3) == 0)
@@ -326,10 +326,10 @@ static int AddTri(struct lp_vertex_list *vl, float *pt1, float *pt2, float *pt3,
   return 0;
 }
 
-static int AddQuad(struct lp_vertex_list *vl, float *vert, float comb_tol) {
-  if (AddTri(vl, &vert[1 * 8], &vert[0 * 8], &vert[2 * 8], comb_tol) < 0)
+static int AddQuad(struct lp_vertex_list *vl, float *vert) {
+  if (AddTri(vl, &vert[1 * 8], &vert[0 * 8], &vert[2 * 8]) < 0)
     return -1;
-  if (AddTri(vl, &vert[2 * 8], &vert[3 * 8], &vert[1 * 8], comb_tol) < 0)
+  if (AddTri(vl, &vert[2 * 8], &vert[3 * 8], &vert[1 * 8]) < 0)
     return -1;
   
   return 0;
@@ -495,7 +495,7 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, f
       vert[29] = 0;
       vert[30] = (-h + xoff) * xsc;
       vert[31] = ((ymid - (carc + arc)) + yoff) * ysc;
-      if (AddQuad(vl, vert, poly->comb_tol * scale) < 0)
+      if (AddQuad(vl, vert) < 0)
 	goto err4;
       carc += arc;
     }
@@ -675,7 +675,7 @@ struct lp_vertex_list *LCW_SolidMesh(const struct lcw_solid *solid, float tol, f
 	vert[29] = 0;
 	vert[30] = (ang1 * seg[ 0].pt[1] + xoff) * xsc;
 	vert[31] = ((ymid - (carc + arc)) + yoff) * ysc;
-	if (AddQuad(vl, vert, poly->comb_tol * scale) < 0)
+	if (AddQuad(vl, vert) < 0)
 	  goto err4;
 	carc += arc;
       }

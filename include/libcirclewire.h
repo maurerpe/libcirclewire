@@ -162,7 +162,7 @@ struct lcw_list *LCW_ConvexDecomp(const struct lcw_wire *wire, float tol);
 /* 3D Solid functions */
 struct lcw_solid *LCW_Solid(const struct lcw_wire *wire, enum lcw_solid_type type, const float *param, size_t num_params);
 void LCW_SolidFree(struct lcw_solid *solid);
-struct lcw_solid *LCW_SolidCopy(struct lcw_solid *solid);
+struct lcw_solid *LCW_SolidCopy(const struct lcw_solid *solid);
 enum lcw_solid_type LCW_SolidType(const struct lcw_solid *solid);
 const struct lcw_wire *LCW_SolidWire(const struct lcw_solid *solid);
 const float *LCW_SolidParams(const struct lcw_solid *solid);
